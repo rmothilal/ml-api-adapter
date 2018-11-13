@@ -94,46 +94,50 @@ const startConsumer = async () => {
 * @returns {boolean} Returns true on sucess and throws error on failure
 */
 
-const consumeMessage = async (error, message) => {
+const consumeMessage = async (error, msg) => {
   const histTimerEnd = Metrics.getHistogram(
     'notification_event',
     'Consume a notification message from the kafka topic and process it accordingly',
     ['success']
   ).startTimer()
   // const { metadata, from, to, content, id } = message[0].value
-
+  if (error) {
+    Logger.error(`Error while reading message from kafka ${error}`)
+    throw error
+  }
   Logger.info('Notification::consumeMessage')
-  try {
-    if (error) {
-      Logger.error(`Error while reading message from kafka ${error}`)
-      throw error
+  let messages = []
+  if (!Array.isArray(msg)) {
+    messages.push(msg)
+  } else {
+    messages = msg.slice()
+  }
+  for (let message of messages) {
+    try {
+      Logger.info(`Notification:consumeMessage message: - ${JSON.stringify(message)}`)
+      Logger.info(`[cid=${message.value.id}, fsp=${message.value.from}, source=${message.value.from}, dest=${message.value.to}] ~ Transfer::handler::notification - START`)
+      Logger.info('Notification::consumeMessage::processMessage')
+      await processMessage(message)
+      Logger.info(`[cid=${message.value.id}, fsp=${message.value.from}, source=${message.value.from}, dest=${message.value.to}] ~ Transfer::handler::notification - POST-CALLBACK`)
+      Logger.info('Committing message back to kafka')
+      if (!autoCommitEnabled) {
+        notificationConsumer.commitMessageSync(message)
+      }
+      // setTimeout(()=>{
+      Logger.info(`[cid=${message.value.id}, fsp=${message.value.from}, source=${message.value.from}, dest=${message.value.to}] ~ Transfer::handler::notification - END`)
+      histTimerEnd({success: true})
+      // }, 150)
+      // return true
+    } catch (e) {
+      Logger.info('Committing message back to kafka')
+      if (!autoCommitEnabled) {
+        notificationConsumer.commitMessageSync(message)
+      }
+      Logger.info(`[cid=${message.value.id}, fsp=${message.value.from}, source=${message.value.from}, dest=${message.value.to}] ~ Transfer::handler::notification - ERROR`)
+      histTimerEnd({success: false})
+      Logger.error(e)
+      // throw e
     }
-    Logger.info(`Notification:consumeMessage message: - ${JSON.stringify(message)}`)
-    if (Array.isArray(message)) {
-      message = message[0]
-    }
-    Logger.info(`[cid=${message.value.id}, fsp=${message.value.from}, source=${message.value.from}, dest=${message.value.to}] ~ Transfer::handler::notification - START`)
-    Logger.info('Notification::consumeMessage::processMessage')
-    await processMessage(message)
-    Logger.info(`[cid=${message.value.id}, fsp=${message.value.from}, source=${message.value.from}, dest=${message.value.to}] ~ Transfer::handler::notification - POST-CALLBACK`)
-    Logger.info('Committing message back to kafka')
-    if (!autoCommitEnabled) {
-      notificationConsumer.commitMessageSync(message)
-    }
-    // setTimeout(()=>{
-    Logger.info(`[cid=${message.value.id}, fsp=${message.value.from}, source=${message.value.from}, dest=${message.value.to}] ~ Transfer::handler::notification - END`)
-    histTimerEnd({success: true})
-    // }, 150)
-    // return true
-  } catch (e) {
-    Logger.info('Committing message back to kafka')
-    if (!autoCommitEnabled) {
-      notificationConsumer.commitMessageSync(message)
-    }
-    Logger.info(`[cid=${message.value.id}, fsp=${message.value.from}, source=${message.value.from}, dest=${message.value.to}] ~ Transfer::handler::notification - ERROR`)
-    histTimerEnd({success: false})
-    Logger.error(e)
-    // throw e
   }
   return true
 }
