@@ -29,7 +29,8 @@ const Validator = require('../../lib/validator')
 const Logger = require('@mojaloop/central-services-shared').Logger
 const Boom = require('@hapi/boom')
 const Metrics = require('@mojaloop/central-services-metrics')
-
+const Utility = require('../../lib/utility')
+const eventLogger = require('../../lib/grpcLogger')
 /**
  * @module src/api/transfers/handler
  */
@@ -52,12 +53,15 @@ const create = async function (request, h) {
     'Produce a transfer prepare message to transfer prepare kafka topic',
     ['success']
   ).startTimer()
-
   try {
+    let rootMessage = Utility.createRootPrepareMessage(request.headers, request.payload, request.dataUri)
+    await eventLogger.trace(rootMessage, 'transfer_prepare')
+    let childSpan = await eventLogger.createChildSpan(rootMessage, 'create')
     Logger.debug('create::payload(%s)', JSON.stringify(request.payload))
     Logger.debug('create::headers(%s)', JSON.stringify(request.headers))
-    await TransferService.prepare(request.headers, request.payload, request.dataUri)
+    await TransferService.prepare(rootMessage)
     histTimerEnd({ success: true })
+    await eventLogger.closeSpan(childSpan)
     return h.response().code(202)
   } catch (err) {
     Logger.error(err)

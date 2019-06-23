@@ -25,10 +25,11 @@
 
 'use strict'
 
-const Logger = require('@mojaloop/central-services-shared').Logger
+const {Logger, CustomLogLevels} = require('@mojaloop/central-services-shared')
 const Uuid = require('uuid4')
 const Utility = require('../../lib/utility')
 const Kafka = require('../../lib/kafka')
+const eventLogger = require('../../lib/grpcLogger')
 
 const TRANSFER = 'transfer'
 const PREPARE = 'prepare'
@@ -49,37 +50,16 @@ const GET = 'get'
 *
 * @returns {boolean} Returns true on successful publishing of message to kafka, throws error on falires
 */
-const prepare = async (headers, message, dataUri) => {
-  Logger.debug('domain::transfer::prepare::start(%s, %s)', headers, message)
+const prepare = async (messageProtocol) => {
   try {
+    let childSpan = await eventLogger.createChildSpan(messageProtocol, 'prepare')
     const kafkaConfig = Utility.getKafkaConfig(Utility.ENUMS.PRODUCER, TRANSFER.toUpperCase(), PREPARE.toUpperCase())
-    const messageProtocol = {
-      id: message.transferId,
-      to: message.payeeFsp,
-      from: message.payerFsp,
-      type: 'application/json',
-      content: {
-        headers: headers,
-        payload: dataUri
-      },
-      metadata: {
-        event: {
-          id: Uuid(),
-          type: 'prepare',
-          action: 'prepare',
-          createdAt: new Date(),
-          state: {
-            status: 'success',
-            code: 0
-          }
-        }
-      }
-    }
-    const topicConfig = Utility.createGeneralTopicConf(TRANSFER, PREPARE, message.transferId)
+    const topicConfig = Utility.createGeneralTopicConf(TRANSFER, PREPARE, messageProtocol.transferId)
     Logger.debug(`domain::transfer::prepare::messageProtocol - ${messageProtocol}`)
     Logger.debug(`domain::transfer::prepare::topicConfig - ${topicConfig}`)
     Logger.debug(`domain::transfer::prepare::kafkaConfig - ${kafkaConfig}`)
     await Kafka.Producer.produceMessage(messageProtocol, topicConfig, kafkaConfig)
+    await eventLogger.closeSpan(childSpan)
     return true
   } catch (err) {
     Logger.error(`domain::transfer::prepare::Kafka error:: ERROR:'${err}'`)
@@ -240,6 +220,7 @@ const transferError = async (id, headers, message, dataUri) => {
     throw err
   }
 }
+
 module.exports = {
   prepare,
   fulfil,

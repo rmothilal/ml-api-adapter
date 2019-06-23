@@ -30,6 +30,7 @@ const Logger = require('@mojaloop/central-services-shared').Logger
 const Participant = require('../../domain/participant')
 const Utility = require('../../lib/utility')
 const Callback = require('./callbacks.js')
+const eventLogger = require('../../lib/grpcLogger')
 
 const NOTIFICATION = 'notification'
 const EVENT = 'event'
@@ -151,7 +152,7 @@ const processMessage = async (msg) => {
     const { metadata, from, to, content, id } = msg.value
     const { action, state } = metadata.event
     const status = state.status
-
+    let childSpan = await eventLogger.createChildSpan(msg.value, 'processMessage')
     const actionLower = action.toLowerCase()
     const statusLower = status.toLowerCase()
 
@@ -163,6 +164,8 @@ const processMessage = async (msg) => {
       let callbackURLTo = await Participant.getEndpoint(to, FSPIOP_CALLBACK_URL_TRANSFER_POST, id)
       let methodTo = ENUM.methods.FSPIOP_CALLBACK_URL_TRANSFER_POST
       Logger.debug(`Notification::processMessage - Callback.sendCallback(${callbackURLTo}, ${methodTo}, ${JSON.stringify(content.headers)}, ${payloadForCallback}, ${id}, ${from}, ${to})`)
+      await eventLogger.closeSpan(childSpan)
+      await eventLogger.closeSpan(metadata.trace)
       return Callback.sendCallback(callbackURLTo, methodTo, content.headers, payloadForCallback, id, from, to)
     }
 
@@ -170,6 +173,8 @@ const processMessage = async (msg) => {
       let callbackURLTo = await Participant.getEndpoint(to, FSPIOP_CALLBACK_URL_TRANSFER_ERROR, id)
       let methodFrom = ENUM.methods.FSPIOP_CALLBACK_URL_TRANSFER_ERROR
       Logger.debug(`Notification::processMessage - Callback.sendCallback(${callbackURLTo}, ${methodFrom}, ${JSON.stringify(content.headers)}, ${payloadForCallback}, ${id}, ${from}, ${to})`)
+      await eventLogger.closeSpan(childSpan)
+      await eventLogger.closeSpan(metadata.trace)
       return Callback.sendCallback(callbackURLTo, methodFrom, content.headers, payloadForCallback, id, from, to)
     }
 
@@ -177,6 +182,8 @@ const processMessage = async (msg) => {
       let callbackURLTo = await Participant.getEndpoint(to, FSPIOP_CALLBACK_URL_TRANSFER_PUT, id)
       let methodFrom = ENUM.methods.FSPIOP_CALLBACK_URL_TRANSFER_PUT
       Logger.debug(`Notification::processMessage - Callback.sendCallback(${callbackURLTo}, ${methodFrom}, ${JSON.stringify(content.headers)}, ${payloadForCallback}, ${id}, ${from}, ${to})`)
+      await eventLogger.closeSpan(childSpan)
+      await eventLogger.closeSpan(metadata.trace)
       return Callback.sendCallback(callbackURLTo, methodFrom, content.headers, payloadForCallback, id, from, to)
     }
 

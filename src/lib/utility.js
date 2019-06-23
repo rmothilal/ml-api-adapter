@@ -28,6 +28,7 @@ const Config = require('./config')
 const Mustache = require('mustache')
 const KafkaConfig = Config.KAFKA_CONFIG
 const Logger = require('@mojaloop/central-services-shared').Logger
+const Uuid = require('uuid4')
 
 /**
  * @module src/lib/utility
@@ -366,7 +367,32 @@ const createGeneralTopicConf = (functionality, action, key = null, partition = n
   }
 }
 
-// exports.getParticipantTopicName = getParticipantTopicName
+const createRootPrepareMessage = (headers, message, dataUri) => {
+  return {
+    id: message.transferId,
+    to: message.payeeFsp,
+    from: message.payerFsp,
+    type: 'application/json',
+    content: {
+      headers: headers,
+      payload: dataUri
+    },
+    metadata: {
+      event: {
+        id: Uuid(),
+        type: 'prepare',
+        action: 'prepare',
+        createdAt: new Date(),
+        state: {
+          status: 'success',
+          code: 0
+        }
+      }
+    }
+  }
+}
+
+exports.createRootPrepareMessage = createRootPrepareMessage
 exports.getFulfilTopicName = getFulfilTopicName
 exports.getKafkaConfig = getKafkaConfig
 exports.getNotificationTopicName = getNotificationTopicName
