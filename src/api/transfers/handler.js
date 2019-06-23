@@ -55,13 +55,12 @@ const create = async function (request, h) {
   ).startTimer()
   try {
     let rootMessage = Utility.createRootPrepareMessage(request.headers, request.payload, request.dataUri)
-    await eventLogger.trace(rootMessage, 'transfer_prepare')
-    let childSpan = await eventLogger.createChildSpan(rootMessage, 'create')
+    let span = await eventLogger.trace(rootMessage, 'transfer_prepare')
     Logger.debug('create::payload(%s)', JSON.stringify(request.payload))
     Logger.debug('create::headers(%s)', JSON.stringify(request.headers))
     await TransferService.prepare(rootMessage)
     histTimerEnd({ success: true })
-    await eventLogger.closeSpan(childSpan)
+    await eventLogger.closeSpan(span)
     return h.response().code(202)
   } catch (err) {
     Logger.error(err)

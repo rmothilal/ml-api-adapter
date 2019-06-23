@@ -165,7 +165,6 @@ const processMessage = async (msg) => {
       let methodTo = ENUM.methods.FSPIOP_CALLBACK_URL_TRANSFER_POST
       Logger.debug(`Notification::processMessage - Callback.sendCallback(${callbackURLTo}, ${methodTo}, ${JSON.stringify(content.headers)}, ${payloadForCallback}, ${id}, ${from}, ${to})`)
       await eventLogger.closeSpan(childSpan)
-      await eventLogger.closeSpan(metadata.trace)
       return Callback.sendCallback(callbackURLTo, methodTo, content.headers, payloadForCallback, id, from, to)
     }
 

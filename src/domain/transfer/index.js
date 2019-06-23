@@ -52,14 +52,12 @@ const GET = 'get'
 */
 const prepare = async (messageProtocol) => {
   try {
-    let childSpan = await eventLogger.createChildSpan(messageProtocol, 'prepare')
     const kafkaConfig = Utility.getKafkaConfig(Utility.ENUMS.PRODUCER, TRANSFER.toUpperCase(), PREPARE.toUpperCase())
     const topicConfig = Utility.createGeneralTopicConf(TRANSFER, PREPARE, messageProtocol.transferId)
     Logger.debug(`domain::transfer::prepare::messageProtocol - ${messageProtocol}`)
     Logger.debug(`domain::transfer::prepare::topicConfig - ${topicConfig}`)
     Logger.debug(`domain::transfer::prepare::kafkaConfig - ${kafkaConfig}`)
     await Kafka.Producer.produceMessage(messageProtocol, topicConfig, kafkaConfig)
-    await eventLogger.closeSpan(childSpan)
     return true
   } catch (err) {
     Logger.error(`domain::transfer::prepare::Kafka error:: ERROR:'${err}'`)
